@@ -1,5 +1,7 @@
 Aaron Namba <aaron@biggerbird.com>
 
+Essentially, this project enables Time Machine-like backups for Linux clients using rsync+ssh. (Of course, the restore side is where Apple's version shines. This project is not there yet.)
+
 I'm a bit new to open source and publishing things on Github, but I'm going to make things as clear as I know how. Hopefully all this will be of use to someone somewhere someday.
 
 rrsync is distributed with rsync (on my CentOS 6 system, I found it under /usr/share/doc/rsync-3.0.6/support/rrsync), and as such, I assume it is released under the GNU GPLv3. As I understand it, that would make my modifications, since I am releasing them, also GPLv3.
@@ -38,3 +40,5 @@ lrwxrwxrwx  1 user1 user1   19 Mar 19 03:03 current -> 2012_03_19_02_49_36
 drwxr-xr-x  9 user1 user1  116 Mar 19 06:01 inprogress
 
 You can see that there is a backup in progress. While the rsync is happening, all files are received into the directory called "inprogress." (This means only one backup can take place at one time per user, but that is exactly what I need, so that is how I designed the system is designed to work. This way, if the rsync is canceled and restarted, it will pick up where it left off.) Once the rsync completes successfully, rrsync renames it to the date/time when the backup began and changes the "current" symlink to get ready for the next backup.
+
+So far this custom rrsync only handles the incoming side of things. Restore functionality is not even considered, as (thankfully) I have not needed it. No idea when I'll get a chance to get that done.
