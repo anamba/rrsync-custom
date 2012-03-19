@@ -1,0 +1,40 @@
+Aaron Namba <aaron@biggerbird.com>
+
+I'm a bit new to open source and publishing things on Github, but I'm going to make things as clear as I know how. Hopefully all this will be of use to someone somewhere someday.
+
+rrsync is distributed with rsync (on my CentOS 6 system, I found it under /usr/share/doc/rsync-3.0.6/support/rrsync), and as such, I assume it is released under the GNU GPLv3. As I understand it, that would make my modifications, since I am releasing them, also GPLv3.
+
+My modifications are a bit clumsy (it's been a while since I've used perl), but they work, and besides, this project was more about the system I've set up than the code that implements it.
+
+rrsync is extremely useful to secure a backup server that will be allowing incoming rsync backups pushed via ssh from client machines (which can be servers, but for the purposes of this discussion, we'll call them rsync clients).
+
+In my setup, after a simple setup process, a client can run a script (I called mine 'push-backup') and generate time-machine like backups. That is, unchanged files are not re-copied, and modified files do not overwrite the previous versions. The rsync option "link-dest" takes care of that using hard links.
+
+If you're not familiar with rsync snapshots using hard links, read this (now somewhat dated) post:
+http://www.mikerubel.org/computers/rsync_snapshots/
+
+Here is a sample backup script:
+#!/bin/sh
+nice ionice -c3 \
+  rsync -az --delete \
+    --rsh='ssh -l anamba -i ~/.ssh/id_rsa-backup' \
+    --exclude '*.log' --exclude '*_log' \
+    /home/anamba mybackupserver:
+
+It can be very simple, as all the magic happens on the server side.
+
+Each client has its own account on the server and uses public key authentication to log in via ssh to perform the rsync. OpenSSH allows you to force a client authenticating with a given key to execute a single command upon connecting, which in this case will be our rrsync script. rrsync checks the arguments to make sure all requests stay within the user's homedir. (Of course, if rsync itself is compromised, all bets are off. Use this setup on a dedicated backup server with no user shell access.)
+
+After a few backups, here's what the homedir looks like:
+drwx------ 10 user1 user1 4096 Mar 19 06:01 .
+drwxr-xr-x  3 root  root    17 Mar 18 05:35 ..
+drwxr-xr-x  2 user1 user1   28 Mar 18 08:05 .ssh
+drwxr-xr-x  4 user1 user1   43 Mar 19 00:24 2012_03_19_00_18_54
+drwxr-xr-x  4 user1 user1   43 Mar 19 01:00 2012_03_19_01_00_28
+drwxr-xr-x  5 user1 user1   54 Mar 19 01:19 2012_03_19_01_15_48
+drwxr-xr-x  7 user1 user1   98 Mar 19 02:45 2012_03_19_01_27_11
+drwxr-xr-x  8 user1 user1  112 Mar 19 03:03 2012_03_19_02_49_36
+lrwxrwxrwx  1 user1 user1   19 Mar 19 03:03 current -> 2012_03_19_02_49_36
+drwxr-xr-x  9 user1 user1  116 Mar 19 06:01 inprogress
+
+You can see that there is a backup in progress. While the rsync is happening, all files are received into the directory called "inprogress." (This means only one backup can take place at one time per user, but that is exactly what I need, so that is how I designed the system is designed to work. This way, if the rsync is canceled and restarted, it will pick up where it left off.) Once the rsync completes successfully, rrsync renames it to the date/time when the backup began and changes the "current" symlink to get ready for the next backup.
