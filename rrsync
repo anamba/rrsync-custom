@@ -20,17 +20,16 @@ Use 'command="$0 [-ro] SUBDIR"'
 	in front of lines in $ENV{HOME}/.ssh/authorized_keys
 EOM
 
-our $ro = (@ARGV && $ARGV[0] eq '-ro') ? shift : '';	# -ro = Read-Only
-our $subdir = shift;
-die "$0: No subdirectory specified\n$Usage" unless defined $subdir;
+our $ro = (@ARGV && $ARGV[0] eq '-ro') ? shift : '';    # -ro = Read-Only
+our $subdir = $ENV{HOME};
 $subdir = abs_path($subdir);
-die "$0: Restricted directory does not exist!\n" if $subdir ne '/' && !-d $subdir;
+die "$0: Home directory does not exist!\n" if $subdir ne '/' && !-d $subdir;
 
 # The client uses "rsync -av -e ssh src/ server:dir/", and sshd on the server
 # executes this program when .ssh/authorized_keys has 'command="..."'.
 # For example:
-# command="rrsync logs/client" ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAIEAzGhEeNlPr...
-# command="rrsync -ro results" ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAIEAmkHG1WCjC...
+# command="rrsync" ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAIEAzGhEeNlPr...
+# command="rrsync -ro" ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAIEAmkHG1WCjC...
 #
 # Format of the envrionment variables set by sshd:
 # SSH_ORIGINAL_COMMAND=rsync --server          -vlogDtpr --partial . ARG # push
