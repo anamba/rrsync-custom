@@ -52,3 +52,14 @@ drwxr-xr-x  9 user1 user1  116 Mar 19 06:01 inprogress
 You can see that there is a backup in progress. While the rsync is happening, all files are received into the directory called "inprogress." (This means only one backup can take place at one time per user, but that is exactly what I need, so that is how I designed the system is designed to work. This way, if the rsync is canceled and restarted, it will pick up where it left off.) Once the rsync completes successfully, rrsync renames it to the date/time when the backup began and changes the "current" symlink to get ready for the next backup.
 
 So far this custom rrsync only handles the incoming side of things. Restore functionality is not even considered, as (thankfully) I have not needed it. No idea when I'll get a chance to get that done.
+
+Snapshot cleanup is not done as part of the backup process the way it is with Time Machine, but I figure that's only because the average desktop or laptop can't rely on cron. We can clean up old snapshots via crontab using something like this:
+
+Daily:
+find /data/.snapshots -maxdepth 1 -type d -mtime +1 -name '????_??_??_??_??_??' -not -name '????_??_??_00_??_??'
+
+Weekly:
+find /data/.snapshots -maxdepth 1 -type d -regextype posix-extended -mtime +7 -name '????_??_??_??_??_??' -not -iname '.*????_??_(01|08|15|22|29)_??_??_??'
+
+Monthly:
+find /data/.snapshots -maxdepth 1 -type d -mtime +28 -name '????_??_??_??_??_??' -not -name '????_??_01_??_??_??'
