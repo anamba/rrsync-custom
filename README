@@ -1,5 +1,7 @@
 Aaron Namba <aaron@biggerbird.com>
 
+Update (2012-12-05): This project may look abandoned, but the reason there have been no changes in  months is because everything has been working perfectly. :-) I'll reformat this readme at some point to make it nicer...
+
 This project enables Time Machine-like backups for Linux clients using rsync+ssh. (Of course, the restore side is where Apple's version shines. This project is not nearly there yet.) In my case, I've set up a t1.micro instance on EC2 and attached an XFS-formatted EBS volume to store backups. There are probably other filesystem options, but I'm familiar with XFS and it won't run out of inodes (a valid concern with hard link-based backup systems).
 
 rrsync is extremely useful to secure a backup server that will be allowing incoming rsync backups pushed via ssh from client machines. You can use a similar technique to do local backups to a secondary drive, but then you wouldn't need rrsync, so I'm not going to cover that here.
@@ -53,7 +55,7 @@ You can see that there is a backup in progress. While the rsync is happening, al
 
 So far this custom rrsync only handles the incoming side of things. Restore functionality is not even considered, as (thankfully) I have not needed it. No idea when I'll get a chance to get that done.
 
-Snapshot cleanup is not done as part of the backup process the way it is with Time Machine, but I figure that's only because the average desktop or laptop can't rely on cron. We can clean up old snapshots via crontab using something like this:
+Snapshot cleanup is not done as part of the backup process the way it is with Time Machine, but I figure that's only because the average desktop or laptop can't rely on cron (and doesn't keep the backup volume mounted constantly). In our case, we can clean up old snapshots via crontab using something like this:
 
 Daily:
 find /data/.snapshots -maxdepth 1 -type d -mtime +1 -name '????_??_??_??_??_??' -not -name '????_??_??_00_??_??'
