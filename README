@@ -1,21 +1,22 @@
 Aaron Namba <aaron@biggerbird.com>
 
-Update (2012-12-05): This project may look abandoned, but the reason there have been no changes in  months is because everything has been working perfectly. :-) I'll reformat this readme at some point to make it nicer...
+Update (2013-09-14): This project may look abandoned, but the reason there have been no changes is because everything has been working perfectly. :-)
 
-This project enables Time Machine-like backups for Linux clients using rsync+ssh. (Of course, the restore side is where Apple's version shines. This project is not nearly there yet.) In my case, I've set up a t1.micro instance on EC2 and attached an XFS-formatted EBS volume to store backups. There are probably other filesystem options, but I'm familiar with XFS and it won't run out of inodes (a valid concern with hard link-based backup systems).
+This project enables Time Machine-like backups for Linux clients using rsync+ssh. (Of course, the restore side is where Apple's version shines. This project does not address restoring, you'll have handle that manually.)
 
-rrsync is extremely useful to secure a backup server that will be allowing incoming rsync backups pushed via ssh from client machines. You can use a similar technique to do local backups to a secondary drive, but then you wouldn't need rrsync, so I'm not going to cover that here.
+In my case, I've set up a t1.micro instance on EC2 and attached an XFS-formatted EBS volume to store backups. There are many other filesystem options, but XFS is one I'm familiar with, and it won't run out of inodes (a valid concern with hard link-based backup systems).
 
-I'm a bit new to publishing on Github, but I'm going to make things as clear as I know how. Hopefully all this will be of use to someone somewhere someday.
+In my setup, a client machine can run a script (I called mine 'push-backup') to generate Time Machine-like backups. That is, unchanged files are not re-copied, and modified files do not overwrite the previous versions. The rsync option "link-dest" takes care of that using hard links.
+
+If you're not familiar with rsync snapshots using hard links, read this (now somewhat dated) post:
+http://www.mikerubel.org/computers/rsync_snapshots/
+
+In this setup, you might want to allow rsync, but not shell access. To do that, rrsync is good tool to secure a backup server that will be allowing incoming rsync backups pushed via ssh from client machines. However, it needed a few modifications to support this setup.
 
 rrsync is distributed with rsync (on my CentOS 6 system, I found it under /usr/share/doc/rsync-3.0.6/support/rrsync), and as such, I assume it is released under the GNU GPLv3. As I understand it, that would make my modifications, since I am releasing them, also GPLv3.
 
 My modifications are a bit clumsy (it's been a while since I've used perl), but they work, and besides, this project was more about the system I've set up than the code that implements it.
 
-In my setup, after a simple setup process, a client can run a script (I called mine 'push-backup') and generate time-machine like backups. That is, unchanged files are not re-copied, and modified files do not overwrite the previous versions. The rsync option "link-dest" takes care of that using hard links.
-
-If you're not familiar with rsync snapshots using hard links, read this (now somewhat dated) post:
-http://www.mikerubel.org/computers/rsync_snapshots/
 
 Here is a sample backup script:
 #!/bin/sh
@@ -35,7 +36,7 @@ Match User *,!root
 	X11Forwarding no
 	ForceCommand "/usr/bin/rrsync"
 
-This is the most secure way: every non-root user must run my custom rrsync. The other way would be to add "command=/usr/bin/rrsync" to each user's .ssh/authorized_keys file, but of course that leaves room for error.
+This is the most secure way: every non-root user connecting via ssh can only run my custom rrsync. (The other way would be to add "command=/usr/bin/rrsync" to each user's .ssh/authorized_keys file, but of course that leaves room for error.)
 
 Either way, the idea is that rrsync checks the arguments to make sure all requests stay within the user's homedir, and handles the pre- or post-backup tasks that make this system work. (Of course, if the rsync binary itself is compromised, all bets are off. Use this setup on a dedicated backup server with no user shell access.)
 
@@ -51,17 +52,17 @@ drwxr-xr-x  8 user1 user1  112 Mar 19 03:03 2012_03_19_02_49_36
 lrwxrwxrwx  1 user1 user1   19 Mar 19 03:03 current -> 2012_03_19_02_49_36
 drwxr-xr-x  9 user1 user1  116 Mar 19 06:01 inprogress
 
-You can see that there is a backup in progress. While the rsync is happening, all files are received into the directory called "inprogress." (This means only one backup can take place at one time per user, but that is exactly what I need, so that is how I designed the system is designed to work. This way, if the rsync is canceled and restarted, it will pick up where it left off.) Once the rsync completes successfully, rrsync renames it to the date/time when the backup began and changes the "current" symlink to get ready for the next backup.
+The 'inprogress' entry indicates that there is a backup in progress at this moment. While the rsync is happening, all files are received into the directory called "inprogress." (This means only one backup can take place at one time per user, but that is exactly what I need, so that is how I designed the system is designed to work. This way, if the rsync is canceled and restarted, it will pick up where it left off.) Once the rsync completes successfully, rrsync renames it to the date/time when the backup began and changes the "current" symlink to get ready for the next backup.
 
-So far this custom rrsync only handles the incoming side of things. Restore functionality is not even considered, as (thankfully) I have not needed it. No idea when I'll get a chance to get that done.
+So far this custom rrsync only handles the incoming side of things. Restore functionality is not even considered, as (thankfully) I have not needed it often. No idea when I'll get a chance to get that done.
 
-Snapshot cleanup is not done as part of the backup process the way it is with Time Machine, but I figure that's only because the average desktop or laptop can't rely on cron (and doesn't keep the backup volume mounted constantly). In our case, we can clean up old snapshots via crontab using something like this:
+Snapshot cleanup is not done as part of the backup process the way it is with Time Machine, but I figure that's only because the average desktop or laptop can't rely on cron (and doesn't keep the backup volume mounted constantly). In our case, we can clean up old backups via crontab using something like this:
 
 Daily:
-find /data/.snapshots -maxdepth 1 -type d -mtime +1 -name '????_??_??_??_??_??' -not -name '????_??_??_00_??_??'
+find /home -maxdepth 2 -type d -mtime +1 -name '????_??_??_??_??_??' -not -name '????_??_??_00_??_??'
 
 Weekly:
-find /data/.snapshots -maxdepth 1 -type d -regextype posix-extended -mtime +7 -name '????_??_??_??_??_??' -not -iname '.*????_??_(01|08|15|22|29)_??_??_??'
+find /home -maxdepth 2 -type d -regextype posix-extended -mtime +7 -name '????_??_??_??_??_??' -not -iname '.*????_??_(01|08|15|22|29)_??_??_??'
 
 Monthly:
-find /data/.snapshots -maxdepth 1 -type d -mtime +28 -name '????_??_??_??_??_??' -not -name '????_??_01_??_??_??'
+find /home -maxdepth 2 -type d -mtime +28 -name '????_??_??_??_??_??' -not -name '????_??_01_??_??_??'
